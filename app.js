@@ -13,7 +13,7 @@
  * @returns {string} ランダムなUUID
  */
 function generateId() {
-    return crypto.randomUUID ? crypto.randomUUID() : 
+    return crypto.randomUUID ? crypto.randomUUID() :
         'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
             const r = Math.random() * 16 | 0;
             return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
@@ -174,6 +174,69 @@ const StorageManager = {
             settings: this.getSettings(),
             exportedAt: new Date().toISOString()
         }, null, 2);
+    },
+
+    /**
+     * データをインポート
+     * @param {string} jsonString - JSONデータ
+     * @param {string} mode - 'merge' | 'replace'
+     * @returns {Object} インポート結果
+     */
+    importData(jsonString, mode = 'merge') {
+        try {
+            const data = JSON.parse(jsonString);
+
+            // データ検証
+            if (!data.subscriptions || !Array.isArray(data.subscriptions)) {
+                throw new Error('無効なデータ形式です');
+            }
+
+            let importedCount = 0;
+            let skippedCount = 0;
+
+            if (mode === 'replace') {
+                // 完全置換モード
+                this.setSubscriptions(data.subscriptions);
+                importedCount = data.subscriptions.length;
+            } else {
+                // マージモード（重複はスキップ）
+                const existing = this.getSubscriptions();
+                const existingIds = new Set(existing.map(sub => sub.id));
+                const existingNames = new Set(existing.map(sub => sub.name.toLowerCase()));
+
+                const newSubs = data.subscriptions.filter(sub => {
+                    // IDまたは名前が重複していればスキップ
+                    if (existingIds.has(sub.id) || existingNames.has(sub.name.toLowerCase())) {
+                        skippedCount++;
+                        return false;
+                    }
+                    return true;
+                });
+
+                this.setSubscriptions([...existing, ...newSubs]);
+                importedCount = newSubs.length;
+            }
+
+            // 設定もインポート（オプション）
+            if (data.settings && mode === 'replace') {
+                this.setSettings(data.settings);
+            }
+
+            return {
+                success: true,
+                imported: importedCount,
+                skipped: skippedCount,
+                message: `${importedCount}件をインポートしました${skippedCount > 0 ? `（${skippedCount}件は重複のためスキップ）` : ''}`
+            };
+        } catch (error) {
+            console.error('Import error:', error);
+            return {
+                success: false,
+                imported: 0,
+                skipped: 0,
+                message: `インポートに失敗しました: ${error.message}`
+            };
+        }
     }
 };
 
@@ -218,11 +281,11 @@ const SubscriptionManager = {
             trialEndDate: data.trialEndDate || '',
             createdAt: new Date().toISOString()
         };
-        
+
         const subscriptions = this.getAll();
         subscriptions.push(subscription);
         StorageManager.setSubscriptions(subscriptions);
-        
+
         return subscription;
     },
 
@@ -235,9 +298,9 @@ const SubscriptionManager = {
     update(id, data) {
         const subscriptions = this.getAll();
         const index = subscriptions.findIndex(sub => sub.id === id);
-        
+
         if (index === -1) return null;
-        
+
         subscriptions[index] = {
             ...subscriptions[index],
             name: data.name,
@@ -250,7 +313,7 @@ const SubscriptionManager = {
             trialEndDate: data.trialEndDate || '',
             updatedAt: new Date().toISOString()
         };
-        
+
         StorageManager.setSubscriptions(subscriptions);
         return subscriptions[index];
     },
@@ -263,9 +326,9 @@ const SubscriptionManager = {
     delete(id) {
         const subscriptions = this.getAll();
         const filtered = subscriptions.filter(sub => sub.id !== id);
-        
+
         if (filtered.length === subscriptions.length) return false;
-        
+
         StorageManager.setSubscriptions(filtered);
         return true;
     },
@@ -278,17 +341,17 @@ const SubscriptionManager = {
      */
     getMonthlyPrice(subscription, exchangeRate = 150) {
         let price = subscription.price;
-        
+
         // USDの場合は円に換算
         if (subscription.currency === 'USD') {
             price = price * exchangeRate;
         }
-        
+
         // 年額の場合は12で割る
         if (subscription.cycle === 'yearly') {
             price = price / 12;
         }
-        
+
         return Math.round(price);
     },
 
@@ -390,24 +453,24 @@ const UIManager = {
             // Summary
             monthlyTotal: document.getElementById('monthlyTotal'),
             yearlyTotal: document.getElementById('yearlyTotal'),
-            
+
             // Subscription list
             subscriptionList: document.getElementById('subscriptionList'),
             emptyState: document.getElementById('emptyState'),
-            
+
             // Filters
             categoryFilter: document.getElementById('categoryFilter'),
             sortByDate: document.getElementById('sortByDate'),
             sortByPrice: document.getElementById('sortByPrice'),
-            
+
             // Notification
             notificationBanner: document.getElementById('notificationBanner'),
             notificationText: document.getElementById('notificationText'),
             closeNotification: document.getElementById('closeNotification'),
-            
+
             // FAB
             addBtn: document.getElementById('addBtn'),
-            
+
             // Subscription Modal
             subscriptionModal: document.getElementById('subscriptionModal'),
             modalBackdrop: document.getElementById('modalBackdrop'),
@@ -415,7 +478,7 @@ const UIManager = {
             closeModal: document.getElementById('closeModal'),
             subscriptionForm: document.getElementById('subscriptionForm'),
             cancelBtn: document.getElementById('cancelBtn'),
-            
+
             // Form fields
             subscriptionId: document.getElementById('subscriptionId'),
             serviceName: document.getElementById('serviceName'),
@@ -426,7 +489,7 @@ const UIManager = {
             nextDate: document.getElementById('nextDate'),
             trialEndDate: document.getElementById('trialEndDate'),
             cancelUrl: document.getElementById('cancelUrl'),
-            
+
             // Settings Modal
             settingsBtn: document.getElementById('settingsBtn'),
             settingsModal: document.getElementById('settingsModal'),
@@ -437,7 +500,9 @@ const UIManager = {
             exchangeRate: document.getElementById('exchangeRate'),
             saveSettingsBtn: document.getElementById('saveSettingsBtn'),
             exportDataBtn: document.getElementById('exportDataBtn'),
-            
+            importDataBtn: document.getElementById('importDataBtn'),
+            importFileInput: document.getElementById('importFileInput'),
+
             // Delete Modal
             deleteModal: document.getElementById('deleteModal'),
             deleteBackdrop: document.getElementById('deleteBackdrop'),
@@ -454,7 +519,7 @@ const UIManager = {
     updateSummary(exchangeRate = 150) {
         const monthly = SubscriptionManager.getMonthlyTotal(exchangeRate);
         const yearly = SubscriptionManager.getYearlyTotal(exchangeRate);
-        
+
         this.elements.monthlyTotal.textContent = monthly.toLocaleString('ja-JP');
         this.elements.yearlyTotal.textContent = yearly.toLocaleString('ja-JP');
     },
@@ -466,15 +531,15 @@ const UIManager = {
      */
     renderSubscriptions(subscriptions, exchangeRate = 150) {
         const container = this.elements.subscriptionList;
-        
+
         // 既存のカードを削除（空状態は残す）
         container.querySelectorAll('.subscription-card').forEach(el => el.remove());
-        
+
         // 空状態の表示切替
         this.elements.emptyState.hidden = subscriptions.length > 0;
-        
+
         if (subscriptions.length === 0) return;
-        
+
         // カードを生成
         subscriptions.forEach(sub => {
             const card = this.createSubscriptionCard(sub, exchangeRate);
@@ -492,10 +557,10 @@ const UIManager = {
         const card = document.createElement('div');
         card.className = 'subscription-card';
         card.dataset.id = subscription.id;
-        
+
         const daysUntil = getDaysUntil(subscription.nextDate);
         const monthlyPrice = SubscriptionManager.getMonthlyPrice(subscription, exchangeRate);
-        
+
         // お試し期間中かチェック
         let isTrial = false;
         if (subscription.trialEndDate) {
@@ -505,12 +570,12 @@ const UIManager = {
                 card.classList.add('subscription-card--trial');
             }
         }
-        
+
         // 更新日が近い場合はハイライト
         if (daysUntil >= 0 && daysUntil <= 3) {
             card.classList.add('subscription-card--urgent');
         }
-        
+
         // アクセントカラー
         const categoryColors = {
             entertainment: 'var(--color-entertainment)',
@@ -519,7 +584,7 @@ const UIManager = {
             other: 'var(--color-other)'
         };
         card.style.setProperty('--card-accent-color', categoryColors[subscription.category] || categoryColors.other);
-        
+
         card.innerHTML = `
             <div class="subscription-card__category subscription-card__category--${subscription.category}">
                 ${getCategoryEmoji(subscription.category)}
@@ -554,7 +619,7 @@ const UIManager = {
                 </button>
             </div>
         `;
-        
+
         return card;
     },
 
@@ -591,9 +656,9 @@ const UIManager = {
      */
     openSubscriptionModal(subscription = null) {
         const isEdit = subscription !== null;
-        
+
         this.elements.modalTitle.textContent = isEdit ? 'サブスクリプションを編集' : 'サブスクリプションを追加';
-        
+
         // フォームをリセットまたは値を設定
         if (isEdit) {
             this.elements.subscriptionId.value = subscription.id;
@@ -611,7 +676,7 @@ const UIManager = {
             // デフォルトで今日の日付を設定
             this.elements.nextDate.value = new Date().toISOString().split('T')[0];
         }
-        
+
         this.elements.subscriptionModal.hidden = false;
         this.elements.serviceName.focus();
     },
@@ -629,11 +694,11 @@ const UIManager = {
      */
     openSettingsModal() {
         const settings = StorageManager.getSettings();
-        
+
         this.elements.notificationDays.value = settings.notificationDays;
         this.elements.darkModeToggle.checked = settings.darkMode;
         this.elements.exchangeRate.value = settings.exchangeRate;
-        
+
         this.elements.settingsModal.hidden = false;
     },
 
@@ -695,19 +760,19 @@ const App = {
     init() {
         UIManager.cacheElements();
         this.settings = StorageManager.getSettings();
-        
+
         // ダークモード適用
         UIManager.setDarkMode(this.settings.darkMode);
-        
+
         // イベントリスナー設定
         this.bindEvents();
-        
+
         // 初期表示
         this.refresh();
-        
+
         // 通知チェック
         this.checkNotifications();
-        
+
         console.log('SubscKeeper initialized');
     },
 
@@ -716,70 +781,72 @@ const App = {
      */
     bindEvents() {
         const { elements } = UIManager;
-        
+
         // FAB - 追加ボタン
         elements.addBtn.addEventListener('click', () => {
             UIManager.openSubscriptionModal();
         });
-        
+
         // サブスクモーダル
         elements.closeModal.addEventListener('click', () => UIManager.closeSubscriptionModal());
         elements.modalBackdrop.addEventListener('click', () => UIManager.closeSubscriptionModal());
         elements.cancelBtn.addEventListener('click', () => UIManager.closeSubscriptionModal());
-        
+
         // フォーム送信
         elements.subscriptionForm.addEventListener('submit', (e) => {
             e.preventDefault();
             this.handleSaveSubscription();
         });
-        
+
         // 設定モーダル
         elements.settingsBtn.addEventListener('click', () => UIManager.openSettingsModal());
         elements.closeSettings.addEventListener('click', () => UIManager.closeSettingsModal());
         elements.settingsBackdrop.addEventListener('click', () => UIManager.closeSettingsModal());
         elements.saveSettingsBtn.addEventListener('click', () => this.handleSaveSettings());
         elements.exportDataBtn.addEventListener('click', () => this.handleExportData());
-        
+        elements.importDataBtn.addEventListener('click', () => elements.importFileInput.click());
+        elements.importFileInput.addEventListener('change', (e) => this.handleImportData(e));
+
         // ダークモードトグル（リアルタイム反映）
         elements.darkModeToggle.addEventListener('change', (e) => {
             UIManager.setDarkMode(e.target.checked);
         });
-        
+
         // 削除モーダル
         elements.deleteBackdrop.addEventListener('click', () => UIManager.closeDeleteModal());
         elements.cancelDeleteBtn.addEventListener('click', () => UIManager.closeDeleteModal());
         elements.confirmDeleteBtn.addEventListener('click', () => this.handleConfirmDelete());
-        
+
         // 通知バナー
         elements.closeNotification.addEventListener('click', () => UIManager.hideNotification());
-        
+
         // フィルター
         elements.categoryFilter.addEventListener('change', (e) => {
             this.currentCategory = e.target.value;
             this.refresh();
         });
-        
+
         // ソート
         elements.sortByDate.addEventListener('click', () => {
             this.currentSort = 'date';
             UIManager.updateSortButtons('date');
             this.refresh();
         });
-        
+
         elements.sortByPrice.addEventListener('click', () => {
             this.currentSort = 'price';
             UIManager.updateSortButtons('price');
             this.refresh();
         });
-        
+
         // サブスクリスト - イベント委譲
         elements.subscriptionList.addEventListener('click', (e) => {
             const card = e.target.closest('.subscription-card');
             if (!card) return;
-            
+
             const id = card.dataset.id;
             const action = e.target.closest('[data-action]')?.dataset.action;
-            
+
             if (action === 'edit') {
                 const subscription = SubscriptionManager.getById(id);
                 if (subscription) {
@@ -798,7 +865,7 @@ const App = {
                 }
             }
         });
-        
+
         // キーボードショートカット
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
@@ -814,17 +881,17 @@ const App = {
      */
     refresh() {
         let subscriptions = SubscriptionManager.getAll();
-        
+
         // フィルター適用
         subscriptions = SubscriptionManager.filterByCategory(subscriptions, this.currentCategory);
-        
+
         // ソート適用
         if (this.currentSort === 'date') {
             subscriptions = SubscriptionManager.sortByDate(subscriptions);
         } else {
             subscriptions = SubscriptionManager.sortByPrice(subscriptions, this.settings.exchangeRate);
         }
-        
+
         // レンダリング
         UIManager.updateSummary(this.settings.exchangeRate);
         UIManager.renderSubscriptions(subscriptions, this.settings.exchangeRate);
@@ -835,21 +902,21 @@ const App = {
      */
     checkNotifications() {
         const notifications = [];
-        
+
         // 更新日が近いサブスク
         const upcoming = SubscriptionManager.getUpcoming(this.settings.notificationDays);
         if (upcoming.length > 0) {
             const names = upcoming.map(sub => sub.name).join('、');
             notifications.push(`📅 ${names} の更新日が近づいています`);
         }
-        
+
         // お試し期間終了が近いサブスク
         const trialEnding = SubscriptionManager.getTrialEnding(this.settings.notificationDays);
         if (trialEnding.length > 0) {
             const names = trialEnding.map(sub => sub.name).join('、');
             notifications.push(`⚠️ ${names} のお試し期間がまもなく終了します`);
         }
-        
+
         if (notifications.length > 0) {
             UIManager.showNotification(notifications.join(' / '));
         }
@@ -860,7 +927,7 @@ const App = {
      */
     handleSaveSubscription() {
         const { elements } = UIManager;
-        
+
         const data = {
             name: elements.serviceName.value.trim(),
             price: elements.price.value,
@@ -871,9 +938,9 @@ const App = {
             trialEndDate: elements.trialEndDate.value,
             cancelUrl: elements.cancelUrl.value.trim()
         };
-        
+
         const id = elements.subscriptionId.value;
-        
+
         if (id) {
             // 編集
             SubscriptionManager.update(id, data);
@@ -881,7 +948,7 @@ const App = {
             // 追加
             SubscriptionManager.add(data);
         }
-        
+
         UIManager.closeSubscriptionModal();
         this.refresh();
         this.checkNotifications();
@@ -904,13 +971,13 @@ const App = {
      */
     handleSaveSettings() {
         const { elements } = UIManager;
-        
+
         this.settings = {
             notificationDays: parseInt(elements.notificationDays.value),
             darkMode: elements.darkModeToggle.checked,
             exchangeRate: parseFloat(elements.exchangeRate.value) || 150
         };
-        
+
         StorageManager.setSettings(this.settings);
         UIManager.closeSettingsModal();
         this.refresh();
@@ -924,7 +991,7 @@ const App = {
         const data = StorageManager.exportData();
         const blob = new Blob([data], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
-        
+
         const a = document.createElement('a');
         a.href = url;
         a.download = `subsckeeper_backup_${new Date().toISOString().split('T')[0]}.json`;
@@ -932,6 +999,46 @@ const App = {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+    },
+
+    /**
+     * データインポート処理
+     * @param {Event} e - ファイル選択イベント
+     */
+    handleImportData(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const result = StorageManager.importData(event.target.result, 'merge');
+
+            if (result.success) {
+                // 設定を再読み込み
+                this.settings = StorageManager.getSettings();
+                UIManager.setDarkMode(this.settings.darkMode);
+
+                // 画面更新
+                this.refresh();
+                this.checkNotifications();
+
+                // 成功メッセージ
+                alert(`✅ ${result.message}`);
+            } else {
+                // エラーメッセージ
+                alert(`❌ ${result.message}`);
+            }
+
+            // ファイル入力をリセット
+            e.target.value = '';
+        };
+
+        reader.onerror = () => {
+            alert('❌ ファイルの読み込みに失敗しました');
+            e.target.value = '';
+        };
+
+        reader.readAsText(file);
     }
 };
 

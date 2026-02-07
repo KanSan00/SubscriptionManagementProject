@@ -1,13 +1,17 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="SubscKeeper - サブスクリプション管理アプリ。毎月の固定費を一元管理し、意図しない更新を防ぎます。">
     <title>SubscKeeper - サブスク管理</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
 </head>
+
 <body>
     <!-- ヘッダー -->
     <header class="header">
@@ -17,8 +21,9 @@
         </h1>
         <button class="header__settings-btn" id="settingsBtn" aria-label="設定">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="3"/>
-                <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                <circle cx="12" cy="12" r="3" />
+                <path
+                    d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
             </svg>
         </button>
     </header>
@@ -82,8 +87,8 @@
     <!-- FAB（追加ボタン） -->
     <button class="fab" id="addBtn" aria-label="サブスクリプションを追加">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <line x1="12" y1="5" x2="12" y2="19"/>
-            <line x1="5" y1="12" x2="19" y2="12"/>
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
         </svg>
     </button>
 
@@ -97,7 +102,7 @@
             </div>
             <form class="modal__form" id="subscriptionForm">
                 <input type="hidden" id="subscriptionId">
-                
+
                 <div class="form-group">
                     <label class="form-label" for="serviceName">サービス名 *</label>
                     <input type="text" class="form-input" id="serviceName" placeholder="例: Netflix, Spotify" required>
@@ -197,11 +202,14 @@
                         <span class="settings__title">USD換算レート</span>
                         <span class="settings__description">ドルを円に換算する際のレート</span>
                     </div>
-                    <input type="number" class="form-input settings__input" id="exchangeRate" value="150" min="1" step="0.01">
+                    <input type="number" class="form-input settings__input" id="exchangeRate" value="150" min="1"
+                        step="0.01">
                 </div>
             </div>
             <div class="modal__actions">
-                <button type="button" class="btn btn--danger" id="exportDataBtn">データをエクスポート</button>
+                <input type="file" id="importFileInput" accept=".json" hidden>
+                <button type="button" class="btn btn--secondary" id="importDataBtn">📥 インポート</button>
+                <button type="button" class="btn btn--secondary" id="exportDataBtn">📤 エクスポート</button>
                 <button type="button" class="btn btn--primary" id="saveSettingsBtn">保存</button>
             </div>
         </div>
@@ -227,4 +235,5 @@
 
     <script src="app.js"></script>
 </body>
+
 </html>

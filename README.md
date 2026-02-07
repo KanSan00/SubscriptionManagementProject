@@ -67,6 +67,7 @@ SubscriptionManagementProject/
 - ✅ 解約ページURLの保存
 - ✅ USD/JPY通貨対応（換算レート設定可）
 - ✅ データエクスポート（JSON形式）
+- ✅ データインポート（マージモード：重複スキップ）
 
 ## 🛠️ 技術スタック
 
