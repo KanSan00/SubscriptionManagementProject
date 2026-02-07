@@ -435,6 +435,62 @@ const SubscriptionManager = {
             const daysUntil = getDaysUntil(sub.trialEndDate);
             return daysUntil >= 0 && daysUntil <= days;
         });
+    },
+
+    /**
+     * 期限切れサブスクの次回更新日を自動繰り越し
+     * @returns {Array} 繰り越されたサブスク名の配列
+     */
+    rollOverExpired() {
+        const subscriptions = this.getAll();
+        const rolledOver = [];
+        let updated = false;
+
+        subscriptions.forEach(sub => {
+            const daysUntil = getDaysUntil(sub.nextDate);
+
+            // 更新日を過ぎている場合（お試し期間中は除く）
+            if (daysUntil < 0) {
+                // お試し期間中は繰り越ししない
+                if (sub.trialEndDate && getDaysUntil(sub.trialEndDate) >= 0) {
+                    return;
+                }
+
+                const nextDate = new Date(sub.nextDate);
+
+                // 次回更新日を計算
+                if (sub.cycle === 'yearly') {
+                    // 年額: 1年後
+                    nextDate.setFullYear(nextDate.getFullYear() + 1);
+                } else {
+                    // 月額: 1ヶ月後
+                    nextDate.setMonth(nextDate.getMonth() + 1);
+                }
+
+                // 今日より過去の場合は、今日を基準に繰り越す
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                while (nextDate < today) {
+                    if (sub.cycle === 'yearly') {
+                        nextDate.setFullYear(nextDate.getFullYear() + 1);
+                    } else {
+                        nextDate.setMonth(nextDate.getMonth() + 1);
+                    }
+                }
+
+                sub.nextDate = nextDate.toISOString().split('T')[0];
+                sub.rolledOverAt = new Date().toISOString();
+                rolledOver.push(sub.name);
+                updated = true;
+            }
+        });
+
+        if (updated) {
+            StorageManager.setSubscriptions(subscriptions);
+        }
+
+        return rolledOver;
     }
 };
 
@@ -764,14 +820,20 @@ const App = {
         // ダークモード適用
         UIManager.setDarkMode(this.settings.darkMode);
 
+        // 自動繰り越し処理
+        const rolledOver = SubscriptionManager.rollOverExpired();
+        if (rolledOver.length > 0) {
+            console.log('Auto rolled over:', rolledOver);
+        }
+
         // イベントリスナー設定
         this.bindEvents();
 
         // 初期表示
         this.refresh();
 
-        // 通知チェック
-        this.checkNotifications();
+        // 通知チェック（繰り越し情報も含む）
+        this.checkNotifications(rolledOver);
 
         console.log('SubscKeeper initialized');
     },
@@ -899,9 +961,16 @@ const App = {
 
     /**
      * 通知チェック
+     * @param {Array} rolledOver - 繰り越されたサブスク名の配列
      */
-    checkNotifications() {
+    checkNotifications(rolledOver = []) {
         const notifications = [];
+
+        // 繰り越されたサブスク
+        if (rolledOver.length > 0) {
+            const names = rolledOver.join('、');
+            notifications.push(`🔄 ${names} の次回更新日を自動更新しました`);
+        }
 
         // 更新日が近いサブスク
         const upcoming = SubscriptionManager.getUpcoming(this.settings.notificationDays);
