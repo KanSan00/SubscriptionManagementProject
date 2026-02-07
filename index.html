@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="SubscKeeper - サブスクリプション管理アプリ。毎月の固定費を一元管理し、意図しない更新を防ぎます。">
+    <title>SubscKeeper - サブスク管理</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- ヘッダー -->
+    <header class="header">
+        <h1 class="header__title">
+            <span class="header__icon">📦</span>
+            SubscKeeper
+        </h1>
+        <button class="header__settings-btn" id="settingsBtn" aria-label="設定">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+            </svg>
+        </button>
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main class="main">
+        <!-- 通知アラート -->
+        <div class="notification-banner" id="notificationBanner" hidden>
+            <div class="notification-banner__content">
+                <span class="notification-banner__icon">⚠️</span>
+                <p class="notification-banner__text" id="notificationText"></p>
+            </div>
+            <button class="notification-banner__close" id="closeNotification">×</button>
+        </div>
+
+        <!-- サマリーカード -->
+        <section class="summary">
+            <div class="summary__card summary__card--monthly">
+                <div class="summary__label">今月の固定費</div>
+                <div class="summary__amount">
+                    <span class="summary__currency">¥</span>
+                    <span class="summary__value" id="monthlyTotal">0</span>
+                </div>
+            </div>
+            <div class="summary__card summary__card--yearly">
+                <div class="summary__label">年間の固定費</div>
+                <div class="summary__amount">
+                    <span class="summary__currency">¥</span>
+                    <span class="summary__value" id="yearlyTotal">0</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- フィルター/ソート -->
+        <section class="filters">
+            <select class="filters__select" id="categoryFilter">
+                <option value="all">すべてのカテゴリ</option>
+                <option value="entertainment">エンタメ</option>
+                <option value="work">仕事</option>
+                <option value="life">生活</option>
+                <option value="other">その他</option>
+            </select>
+            <div class="filters__sort">
+                <span class="filters__sort-label">並び順:</span>
+                <button class="filters__sort-btn active" data-sort="date" id="sortByDate">更新日</button>
+                <button class="filters__sort-btn" data-sort="price" id="sortByPrice">金額</button>
+            </div>
+        </section>
+
+        <!-- サブスクリプションリスト -->
+        <section class="subscriptions" id="subscriptionList">
+            <!-- JavaScriptで動的に生成 -->
+            <div class="subscriptions__empty" id="emptyState">
+                <div class="subscriptions__empty-icon">📋</div>
+                <p class="subscriptions__empty-text">サブスクリプションがまだ登録されていません</p>
+                <p class="subscriptions__empty-hint">右下の「+」ボタンから追加してください</p>
+            </div>
+        </section>
+    </main>
+
+    <!-- FAB（追加ボタン） -->
+    <button class="fab" id="addBtn" aria-label="サブスクリプションを追加">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+    </button>
+
+    <!-- 登録・編集モーダル -->
+    <div class="modal" id="subscriptionModal" hidden>
+        <div class="modal__backdrop" id="modalBackdrop"></div>
+        <div class="modal__content">
+            <div class="modal__header">
+                <h2 class="modal__title" id="modalTitle">サブスクリプションを追加</h2>
+                <button class="modal__close" id="closeModal">×</button>
+            </div>
+            <form class="modal__form" id="subscriptionForm">
+                <input type="hidden" id="subscriptionId">
+                
+                <div class="form-group">
+                    <label class="form-label" for="serviceName">サービス名 *</label>
+                    <input type="text" class="form-input" id="serviceName" placeholder="例: Netflix, Spotify" required>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="price">金額 *</label>
+                        <input type="number" class="form-input" id="price" placeholder="1000" min="0" step="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="currency">通貨</label>
+                        <select class="form-select" id="currency">
+                            <option value="JPY">¥ JPY</option>
+                            <option value="USD">$ USD</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="cycle">支払いサイクル *</label>
+                        <select class="form-select" id="cycle" required>
+                            <option value="monthly">月額</option>
+                            <option value="yearly">年額</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="category">カテゴリ</label>
+                        <select class="form-select" id="category">
+                            <option value="entertainment">エンタメ</option>
+                            <option value="work">仕事</option>
+                            <option value="life">生活</option>
+                            <option value="other">その他</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="nextDate">次回更新日 *</label>
+                    <input type="date" class="form-input" id="nextDate" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="trialEndDate">お試し期間終了日</label>
+                    <input type="date" class="form-input" id="trialEndDate">
+                    <span class="form-hint">無料期間がある場合に入力してください</span>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="cancelUrl">解約ページURL</label>
+                    <input type="url" class="form-input" id="cancelUrl" placeholder="https://...">
+                    <span class="form-hint">解約時に参照できるよう保存しておきましょう</span>
+                </div>
+
+                <div class="modal__actions">
+                    <button type="button" class="btn btn--secondary" id="cancelBtn">キャンセル</button>
+                    <button type="submit" class="btn btn--primary" id="saveBtn">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 設定モーダル -->
+    <div class="modal" id="settingsModal" hidden>
+        <div class="modal__backdrop" id="settingsBackdrop"></div>
+        <div class="modal__content modal__content--settings">
+            <div class="modal__header">
+                <h2 class="modal__title">設定</h2>
+                <button class="modal__close" id="closeSettings">×</button>
+            </div>
+            <div class="settings">
+                <div class="settings__item">
+                    <div class="settings__label">
+                        <span class="settings__title">通知タイミング</span>
+                        <span class="settings__description">更新日の何日前に通知するか</span>
+                    </div>
+                    <select class="form-select settings__select" id="notificationDays">
+                        <option value="0">当日</option>
+                        <option value="1">1日前</option>
+                        <option value="3" selected>3日前</option>
+                        <option value="7">7日前</option>
+                    </select>
+                </div>
+                <div class="settings__item">
+                    <div class="settings__label">
+                        <span class="settings__title">ダークモード</span>
+                        <span class="settings__description">目に優しい暗いテーマに切り替え</span>
+                    </div>
+                    <label class="toggle">
+                        <input type="checkbox" id="darkModeToggle">
+                        <span class="toggle__slider"></span>
+                    </label>
+                </div>
+                <div class="settings__item">
+                    <div class="settings__label">
+                        <span class="settings__title">USD換算レート</span>
+                        <span class="settings__description">ドルを円に換算する際のレート</span>
+                    </div>
+                    <input type="number" class="form-input settings__input" id="exchangeRate" value="150" min="1" step="0.01">
+                </div>
+            </div>
+            <div class="modal__actions">
+                <button type="button" class="btn btn--danger" id="exportDataBtn">データをエクスポート</button>
+                <button type="button" class="btn btn--primary" id="saveSettingsBtn">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 削除確認モーダル -->
+    <div class="modal" id="deleteModal" hidden>
+        <div class="modal__backdrop" id="deleteBackdrop"></div>
+        <div class="modal__content modal__content--delete">
+            <div class="modal__header">
+                <h2 class="modal__title">削除の確認</h2>
+            </div>
+            <p class="delete-confirm__text">
+                「<span id="deleteTargetName"></span>」を削除しますか？<br>
+                この操作は取り消せません。
+            </p>
+            <div class="modal__actions">
+                <button type="button" class="btn btn--secondary" id="cancelDeleteBtn">キャンセル</button>
+                <button type="button" class="btn btn--danger" id="confirmDeleteBtn">削除</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
